@@ -1,0 +1,42 @@
+name: Turtle Tracker Auto Update
+
+on:
+  schedule:
+    # 01:05 UTC = 08:05 WIB Jakarta (UTC+7)
+    - cron: '5 1 * * 1-5'
+  workflow_dispatch: # biar bisa run manual juga
+
+jobs:
+  update-signals:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance gspread gspread-dataframe oauth2client pandas
+
+      - name: Create service account key file
+        run: |
+          echo '${{ secrets.GSHEETS_SERVICE_ACCOUNT_JSON }}' > service_account.json
+
+      - name: Run Turtle Tracker
+        env:
+          SHEET_ID: ${{ secrets.GSHEETS_SHEET_ID }}
+        run: |
+          python turtle_tracker_daily.py
+
+      - name: Commit signals CSV (optional backup)
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add signals_today.csv || true
+          git diff --staged --quiet || git commit -m "Auto update signals $(date +'%Y-%m-%d %H:%M WIB')"
+          git push || true
